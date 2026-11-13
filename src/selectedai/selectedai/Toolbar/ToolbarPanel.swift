@@ -36,7 +36,6 @@ final class ToolbarPanel: NSPanel {
         log.info("Show toolbar bundleID=\(event.sourceBundleID ?? "unknown") rect=\(event.screenRect.debugDescription)")
         startMouseMonitor()
         let store = AppDataStore.shared
-        let browserURL = event.sourceBundleID.flatMap { BrowserURLFetcher.currentURL(bundleID: $0) }
 
         let disableApp: (() -> Void)? = event.sourceBundleID.map { bid in
             { [weak self] in
@@ -44,24 +43,15 @@ final class ToolbarPanel: NSPanel {
                 self?.hide()
             }
         }
-        let disableSite: (() -> Void)? = browserURL.flatMap { url in
-            guard DisabledRules.normalizeDomain(url) != nil else { return nil }
-            return { [weak self] in
-                store.addDisabledDomain(url)
-                self?.hide()
-            }
-        }
 
         let view = ToolbarView(
             skills: skills,
             sourceBundleID: event.sourceBundleID,
-            browserURL: browserURL,
             onSkillTapped: { [weak self] skill in
                 self?.hide()
                 self?.onSkillSelected?(skill, event)
             },
-            onDisableApp: disableApp,
-            onDisableSite: disableSite
+            onDisableApp: disableApp
         )
         contentView = NSHostingView(rootView: view)
 

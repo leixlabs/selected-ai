@@ -30,6 +30,7 @@ PROJECT_FILE="$PROJECT_DIR/selectedai.xcodeproj"
 TARGET="selectedai"
 CONFIGURATION="Release"
 BUILD_DIR="$SCRIPT_DIR/build"
+XCODEBUILD="/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild"
 
 # ---- Install location (override via env) -----------------------------------
 INSTALL_DIR="${INSTALL_DIR:-/Applications}"
@@ -50,8 +51,8 @@ if [ ! -d "$PROJECT_FILE" ]; then
   exit 1
 fi
 
-if ! command -v xcodebuild >/dev/null 2>&1; then
-  echo "ERROR: xcodebuild not found. Install Xcode or Command Line Tools." >&2
+if [ ! -x "$XCODEBUILD" ]; then
+  echo "ERROR: xcodebuild not found at $XCODEBUILD. Install Xcode." >&2
   exit 1
 fi
 
@@ -62,7 +63,7 @@ fi
 
 # ---- Build (skip Xcode signing; we sign ourselves below) -------------------
 echo "==> Building (this may take a minute)..."
-xcodebuild \
+"$XCODEBUILD" \
   -project "$PROJECT_FILE" \
   -target "$TARGET" \
   -configuration "$CONFIGURATION" \

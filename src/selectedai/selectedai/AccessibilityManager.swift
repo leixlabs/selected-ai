@@ -63,38 +63,28 @@ final class AccessibilityManager: ObservableObject {
         pollingTimer = nil
     }
 
-    // MARK: - First Launch Guidance
+    // MARK: - Launch Check
 
-    private static let permissionPromptedKey = "accessibilityPermissionPrompted"
-
-    /// Shows the Accessibility permission guidance dialog if not already trusted.
-    /// Only shows once — subsequent calls without permission are silently skipped.
-    /// Returns `true` if already trusted, `false` otherwise.
+    /// Checks permission at launch; if missing, shows a dialog offering to request it.
+    /// Returns `true` if already trusted.
     @discardableResult
-    func showPermissionGuideIfNeeded() -> Bool {
-        if checkPermission() {
-            return true
-        }
+    func promptIfNeeded() -> Bool {
+        if checkPermission() { return true }
 
-        // Only prompt once; after that, the user can grant via the menu item or Settings
-        if UserDefaults.standard.bool(forKey: Self.permissionPromptedKey) {
-            return false
-        }
-        UserDefaults.standard.set(true, forKey: Self.permissionPromptedKey)
-
+        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "SelectedAI 需要辅助功能权限"
-        alert.informativeText = "SelectedAI 需要辅助功能权限来检测跨应用的文本选区。\n\n点击「打开系统设置」后，请在「隐私与安全性 > 辅助功能」中启用 SelectedAI。"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "打开系统设置")
+        alert.informativeText = "SelectedAI 需要辅助功能权限来检测跨应用的文本选区。\n\n点击「申请授权」后，请在「隐私与安全性 > 辅助功能」中启用 SelectedAI。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "申请授权")
         alert.addButton(withTitle: "稍后")
 
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
+        if alert.runModal() == .alertFirstButtonReturn {
             requestPermission()
             startPolling()
+        } else {
+            startPolling()
         }
-
         return false
     }
 }

@@ -6,7 +6,5 @@
 	<true/>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>SelectedAI needs Accessibility access to detect text selection across applications and display the toolbar.</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>SelectedAI needs Automation access to read browser URLs for website-specific disable rules.</string>
 </dict>
 </plist>

@@ -16,6 +16,9 @@ struct SettingsView: View {
 
             ProviderSettingsView()
                 .tabItem { Label("Provider", systemImage: "cpu") }
+
+            PermissionsSettingsView()
+                .tabItem { Label("权限", systemImage: "lock.shield") }
         }
         .frame(minWidth: 560, minHeight: 420)
     }

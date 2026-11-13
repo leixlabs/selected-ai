@@ -41,13 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleSkill(skill, event: event)
         }
 
-        // Check Accessibility permission on first launch
+        // Check Accessibility permission on every launch; prompt if missing
         DispatchQueue.main.async {
-            let manager = AccessibilityManager.shared
-            if !manager.checkPermission() {
-                manager.showPermissionGuideIfNeeded()
-                self.updateToggleMenuItem()
-            }
+            AccessibilityManager.shared.promptIfNeeded()
+            self.updateToggleMenuItem()
         }
 
         NotificationCenter.default.addObserver(

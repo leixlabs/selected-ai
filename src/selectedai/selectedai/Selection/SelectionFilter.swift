@@ -17,14 +17,8 @@ final class SelectionFilter {
 
         let rules = store.disabledRules
 
-        if let bundleID = event.sourceBundleID {
-            // App-level check
-            if rules.isAppDisabled(bundleID: bundleID) { return false }
-
-            // Site-level check (only for Safari/Chrome)
-            if let urlString = BrowserURLFetcher.currentURL(bundleID: bundleID) {
-                if rules.isDomainDisabled(urlString: urlString) { return false }
-            }
+        if let bundleID = event.sourceBundleID, rules.isAppDisabled(bundleID: bundleID) {
+            return false
         }
 
         return true

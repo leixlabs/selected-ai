@@ -24,8 +24,86 @@ final class SelectionMonitor {
     private let minCharCount = 2
     private let debounceInterval: Duration = .milliseconds(200)
 
+    private var mouseDownLocation: NSPoint = .zero
+    private var mouseMonitors: [Any] = []
+
     private init() {
         startFrontAppMonitoring()
+        startMouseMonitoring()
+    }
+
+    // MARK: - Clipboard Fallback (apps that don't expose AXSelectedText, e.g. Google Docs)
+
+    private func startMouseMonitoring() {
+        if let m = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown, handler: { [weak self] _ in
+            let loc = NSEvent.mouseLocation
+            Task { @MainActor in self?.mouseDownLocation = loc }
+        }) { mouseMonitors.append(m) }
+
+        if let m = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp, handler: { [weak self] event in
+            let loc = NSEvent.mouseLocation
+            let clicks = event.clickCount
+            Task { @MainActor in self?.handleMouseUp(at: loc, clickCount: clicks) }
+        }) { mouseMonitors.append(m) }
+    }
+
+    private func handleMouseUp(at location: NSPoint, clickCount: Int) {
+        guard AXIsProcessTrusted() else { return }
+        let dragged = hypot(location.x - mouseDownLocation.x, location.y - mouseDownLocation.y) > 5
+        guard dragged || clickCount >= 2 else { return }
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        let pid = app.processIdentifier
+        let bundleID = app.bundleIdentifier
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            // AX path already produced a selection; nothing to do.
+            if self.readCurrentSelection() != nil { return }
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+            guard let text = await Self.copySelectionViaClipboard(), text.count >= self.minCharCount else { return }
+            log.info("Selection via clipboard fallback bundleID=\(bundleID ?? "unknown")")
+            let rect = CGRect(x: location.x - 50, y: location.y, width: 100, height: 20)
+            self.selectionPublisher.send(SelectionEvent(text: text, screenRect: rect, sourceBundleID: bundleID))
+        }
+    }
+
+    /// Simulates Cmd+C, reads the copied text, then restores the previous clipboard contents.
+    private static func copySelectionViaClipboard() async -> String? {
+        let pb = NSPasteboard.general
+        let saved: [[(NSPasteboard.PasteboardType, Data)]] = (pb.pasteboardItems ?? []).map { item in
+            item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+        }
+        let before = pb.changeCount
+
+        let src = CGEventSource(stateID: .combinedSessionState)
+        let cKey: CGKeyCode = 8
+        let down = CGEvent(keyboardEventSource: src, virtualKey: cKey, keyDown: true)
+        let up = CGEvent(keyboardEventSource: src, virtualKey: cKey, keyDown: false)
+        down?.flags = .maskCommand
+        up?.flags = .maskCommand
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
+
+        var text: String?
+        for _ in 0..<15 {
+            try? await Task.sleep(for: .milliseconds(20))
+            if pb.changeCount != before {
+                text = pb.string(forType: .string)
+                break
+            }
+        }
+
+        if pb.changeCount != before {
+            pb.clearContents()
+            let items: [NSPasteboardItem] = saved.map { entries in
+                let item = NSPasteboardItem()
+                for (type, data) in entries { item.setData(data, forType: type) }
+                return item
+            }
+            if !items.isEmpty { pb.writeObjects(items) }
+        }
+        return text
     }
 
     // MARK: - Front App Monitoring
@@ -96,6 +174,8 @@ final class SelectionMonitor {
         guard status == .success, let obs = observer else { return }
 
         let appElement = AXUIElementCreateApplication(pid)
+        // Ask Chromium/Electron apps to build their web accessibility tree.
+        AXUIElementSetAttributeValue(appElement, "AXManualAccessibility" as CFString, kCFBooleanTrue)
         let result = AXObserverAddNotification(
             obs,
             appElement,

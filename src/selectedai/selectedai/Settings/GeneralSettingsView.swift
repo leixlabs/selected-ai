@@ -9,7 +9,6 @@ import AppKit
 struct GeneralSettingsView: View {
     @ObservedObject private var store = AppDataStore.shared
     @ObservedObject private var launchManager = LaunchAtLoginManager.shared
-    @State private var newDomainInput = ""
     @State private var showAppPicker = false
 
     private var isToolbarEnabled: Bool {
@@ -57,39 +56,6 @@ struct GeneralSettingsView: View {
                     showAppPicker = true
                 }
             }
-
-            // MARK: - Disabled Domains
-            Section("禁用的网站") {
-                if store.disabledRules.disabledDomains.isEmpty {
-                    Text("暂无禁用的网站")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(store.disabledRules.disabledDomains, id: \.self) { domain in
-                        HStack {
-                            Image(systemName: "globe")
-                                .foregroundStyle(.secondary)
-                            Text(domain)
-                            Spacer()
-                            Button {
-                                store.removeDisabledDomain(domain)
-                            } label: {
-                                Image(systemName: "minus.circle.fill")
-                                    .foregroundStyle(.red)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-
-                HStack {
-                    TextField("域名或网址，如 example.com", text: $newDomainInput)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { addDomain() }
-
-                    Button("添加") { addDomain() }
-                        .disabled(newDomainInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
         }
         .formStyle(.grouped)
         .padding()
@@ -99,13 +65,6 @@ struct GeneralSettingsView: View {
                 showAppPicker = false
             }
         }
-    }
-
-    private func addDomain() {
-        let input = newDomainInput.trimmingCharacters(in: .whitespaces)
-        guard !input.isEmpty else { return }
-        store.addDisabledDomain(input)
-        newDomainInput = ""
     }
 
     private func appName(for bundleID: String) -> String {

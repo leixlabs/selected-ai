@@ -9,10 +9,8 @@ import SwiftUI
 struct ToolbarView: View {
     let skills: [Skill]
     let sourceBundleID: String?
-    let browserURL: String?
     let onSkillTapped: (Skill) -> Void
     let onDisableApp: (() -> Void)?
-    let onDisableSite: (() -> Void)?
 
     private let maxVisible = 5
 
@@ -31,10 +29,8 @@ struct ToolbarView: View {
             OverflowMenuButton(
                 skills: overflowSkills,
                 sourceBundleID: sourceBundleID,
-                browserURL: browserURL,
                 onSkillTapped: onSkillTapped,
-                onDisableApp: onDisableApp,
-                onDisableSite: onDisableSite
+                onDisableApp: onDisableApp
             )
         }
         .padding(.horizontal, 6)
@@ -46,7 +42,7 @@ struct ToolbarView: View {
     }
 
     private var needsOverflow: Bool {
-        !overflowSkills.isEmpty || onDisableApp != nil || onDisableSite != nil
+        !overflowSkills.isEmpty || onDisableApp != nil
     }
 
     private var separator: some View {
@@ -89,10 +85,8 @@ private struct SkillButton: View {
 private struct OverflowMenuButton: View {
     let skills: [Skill]
     let sourceBundleID: String?
-    let browserURL: String?
     let onSkillTapped: (Skill) -> Void
     let onDisableApp: (() -> Void)?
-    let onDisableSite: (() -> Void)?
 
     @State private var isHovered = false
 
@@ -106,15 +100,12 @@ private struct OverflowMenuButton: View {
                 }
             }
 
-            if !skills.isEmpty && (onDisableApp != nil || onDisableSite != nil) {
+            if !skills.isEmpty && onDisableApp != nil {
                 Divider()
             }
 
             if let onDisableApp {
                 Button("在此应用中禁用", action: onDisableApp)
-            }
-            if let onDisableSite {
-                Button("在此网站中禁用", action: onDisableSite)
             }
 
             Divider()
@@ -142,10 +133,8 @@ private struct OverflowMenuButton: View {
     ToolbarView(
         skills: Skill.defaultSkills,
         sourceBundleID: nil,
-        browserURL: nil,
         onSkillTapped: { _ in },
-        onDisableApp: {},
-        onDisableSite: nil
+        onDisableApp: {}
     )
     .padding()
     .background(Color.gray)
