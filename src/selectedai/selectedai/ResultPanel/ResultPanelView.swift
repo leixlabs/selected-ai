@@ -40,7 +40,7 @@ struct ResultPanelView: View {
 
             // MARK: - Translate language picker
             if case .builtIn(.translate) = model.skill?.kind {
-                TranslateLanguagePicker()
+                TranslateLanguagePicker(model: model)
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
             }
@@ -90,6 +90,19 @@ struct ResultPanelView: View {
                 .buttonStyle(.plain)
                 .help("复制结果")
                 .disabled(model.markdownText.isEmpty)
+
+                if case .builtIn(.translate) = model.skill?.kind {
+                    Button("替换") { insertResult(replace: true) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("用译文替换原选中文本")
+                        .disabled(model.markdownText.isEmpty || model.isStreaming)
+                    Button("插入") { insertResult(replace: false) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("在原选中文本之后插入译文")
+                        .disabled(model.markdownText.isEmpty || model.isStreaming)
+                }
 
                 Spacer()
 
@@ -155,6 +168,13 @@ struct ResultPanelView: View {
         }
     }
 
+    private func insertResult(replace: Bool) {
+        TextInserter.insert(model.markdownText,
+                            original: model.selectionEvent?.text ?? "",
+                            into: model.selectionEvent?.sourceBundleID,
+                            replacingSelection: replace)
+    }
+
     private func copyResult() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(model.markdownText, forType: .string)
@@ -164,27 +184,22 @@ struct ResultPanelView: View {
 // MARK: - Translate Language Picker
 
 private struct TranslateLanguagePicker: View {
-    private let key = "translateTargetLang"
-    @State private var selected: String
+    @ObservedObject var model: ResultPanelModel
 
-    private let options = ["中文", "英文"]
-
-    init() {
-        _selected = State(initialValue: UserDefaults.standard.string(forKey: "translateTargetLang") ?? "中文")
-    }
+    private let options = ["自动", "中文", "英文"]
 
     var body: some View {
         HStack {
             Text("翻译成：")
                 .foregroundStyle(.secondary)
-            Picker("", selection: $selected) {
+            Picker("", selection: Binding(
+                get: { model.translateTarget },
+                set: { model.changeTranslateTarget($0) }
+            )) {
                 ForEach(options, id: \.self) { Text($0) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 160)
-            .onChange(of: selected) { _, new in
-                UserDefaults.standard.set(new, forKey: key)
-            }
+            .frame(width: 220)
             Spacer()
         }
     }

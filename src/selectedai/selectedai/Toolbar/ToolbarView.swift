@@ -11,11 +11,22 @@ struct ToolbarView: View {
     let sourceBundleID: String?
     let onSkillTapped: (Skill) -> Void
     let onDisableApp: (() -> Void)?
+    var onSizeChange: ((CGSize) -> Void)? = nil
 
     private let maxVisible = 5
 
-    private var visibleSkills: [Skill] { Array(skills.prefix(maxVisible)) }
-    private var overflowSkills: [Skill] { Array(skills.dropFirst(maxVisible)) }
+    /// Index of the first visible skill; changed by scrolling while hovering the toolbar.
+    @State private var offset = 0
+    @State private var scrollMonitor: Any?
+    @State private var scrollAccum: CGFloat = 0
+
+    private var maxOffset: Int { max(0, skills.count - maxVisible) }
+    private var clampedOffset: Int { min(max(offset, 0), maxOffset) }
+    private var visibleSkills: [Skill] { Array(skills.dropFirst(clampedOffset).prefix(maxVisible)) }
+    /// Everything not currently shown in the bar (before and after the window).
+    private var overflowSkills: [Skill] {
+        Array(skills.prefix(clampedOffset)) + Array(skills.dropFirst(clampedOffset + maxVisible))
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -39,6 +50,45 @@ struct ToolbarView: View {
         .overlay(Capsule().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 4)
         .fixedSize()
+        .background(GeometryReader { geo in
+            Color.clear
+                .onAppear { onSizeChange?(geo.size) }
+                .onChange(of: geo.size) { _, new in onSizeChange?(new) }
+        })
+        .onHover { hovering in
+            if hovering { startScrollMonitor() } else { stopScrollMonitor() }
+        }
+        .onDisappear { stopScrollMonitor() }
+    }
+
+    // MARK: - Scroll to switch skills
+
+    private func startScrollMonitor() {
+        guard scrollMonitor == nil, maxOffset > 0 else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            handleScroll(event)
+            return nil
+        }
+    }
+
+    private func stopScrollMonitor() {
+        if let m = scrollMonitor { NSEvent.removeMonitor(m) }
+        scrollMonitor = nil
+        scrollAccum = 0
+    }
+
+    private func handleScroll(_ event: NSEvent) {
+        let dy = event.scrollingDeltaY, dx = event.scrollingDeltaX
+        let delta = abs(dy) >= abs(dx) ? dy : -dx
+        // Trackpads report many small precise deltas; a wheel reports one per notch.
+        let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 12 : 1
+        scrollAccum += delta
+        while abs(scrollAccum) >= threshold {
+            // Scroll down (negative delta) / right moves forward.
+            let step = scrollAccum < 0 ? 1 : -1
+            scrollAccum += CGFloat(step) * threshold
+            offset = min(max(clampedOffset + step, 0), maxOffset)
+        }
     }
 
     private var needsOverflow: Bool {

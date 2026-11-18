@@ -10,48 +10,73 @@ struct ProviderSettingsView: View {
     @State private var editingProvider: Provider?
     @State private var showNewProvider = false
 
+    /// Bridges List selection to the currently edited provider so the selected row is highlighted.
+    private var selectionBinding: Binding<UUID?> {
+        Binding(
+            get: { editingProvider?.id },
+            set: { id in
+                editingProvider = store.providers.first(where: { $0.id == id })
+            }
+        )
+    }
+
     var body: some View {
-        HSplitView {
+        // HStack (not HSplitView): HSplitView sizes to content and floats/centers it
+        // in the tab, so the list drifted around. Pin both panes to the top, full height.
+        HStack(spacing: 0) {
             // Provider list
             VStack(alignment: .leading, spacing: 0) {
-                List(store.providers, selection: .constant(nil as UUID?)) { provider in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text(provider.displayName)
-                                    .fontWeight(provider.isActive ? .semibold : .regular)
-                                if provider.isActive {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                        .font(.caption)
-                                }
+                List(store.providers, selection: selectionBinding) { provider in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(provider.displayName)
+                                .fontWeight(provider.isActive ? .semibold : .regular)
+                            if provider.isActive {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                    .font(.caption)
                             }
-                            Text(provider.protocolType.displayName + " · " + provider.modelID)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
-                        Spacer()
+                        Text(provider.protocolType.displayName + " · " + provider.modelID)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture { editingProvider = provider }
+                    .padding(.vertical, 2)
+                    .tag(provider.id)
                 }
                 .listStyle(.inset)
 
                 Divider()
-                Button("+ 新建 Provider") { showNewProvider = true }
-                    .padding(8)
+                Button {
+                    showNewProvider = true
+                } label: {
+                    Label("新建 Provider", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderless)
+                .padding(10)
             }
-            .frame(minWidth: 180)
+            .frame(width: 220)
+            .frame(maxHeight: .infinity, alignment: .top)
+
+            Divider()
 
             // Edit panel
-            if let provider = editingProvider {
-                ProviderEditView(provider: provider) {
-                    editingProvider = store.providers.first(where: { $0.id == provider.id })
+            Group {
+                if let provider = editingProvider {
+                    ProviderEditView(provider: provider) {
+                        editingProvider = store.providers.first(where: { $0.id == provider.id })
+                    }
+                    .id(provider.id)
+                } else {
+                    ContentUnavailableView("选择一个 Provider", systemImage: "cpu")
                 }
-            } else {
-                ContentUnavailableView("选择一个 Provider", systemImage: "cpu")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .sheet(isPresented: $showNewProvider) {
             ProviderEditView(provider: nil) {}
                 .onDisappear { showNewProvider = false }

@@ -17,6 +17,8 @@ final class ResultPanelModel: ObservableObject {
     @Published var error: String?
     @Published var isPinned = false
     @Published var followUpInput = ""
+    /// Target language choice for the built-in translate skill ("自动" / "中文" / "英文").
+    @Published var translateTarget = "自动"
 
     private var messages: [LLMMessage] = []
     private var streamTask: Task<Void, Never>?
@@ -30,6 +32,18 @@ final class ResultPanelModel: ObservableObject {
         self.skill = skill
         self.selectionEvent = event
         messages = []
+        run(prompt: nil)
+    }
+
+    /// Re-run translation after the user picks a different target language.
+    func changeTranslateTarget(_ lang: String) {
+        guard lang != translateTarget else { return }
+        translateTarget = lang
+        guard case .builtIn(.translate) = skill?.kind, selectionEvent != nil else { return }
+        streamTask?.cancel()
+        messages = []
+        markdownText = ""
+        error = nil
         run(prompt: nil)
     }
 
@@ -81,8 +95,7 @@ final class ResultPanelModel: ObservableObject {
             if let p = skill.prompt {
                 systemPrompt = p.replacingOccurrences(of: "{selection}", with: event.text)
             } else if case .builtIn(.translate) = skill.kind {
-                let targetLang = Self.detectTargetLanguage(event.text)
-                systemPrompt = "请将以下内容翻译成\(targetLang)，只输出译文：\n\n\(event.text)"
+                systemPrompt = "请将以下内容翻译成\(translateTarget == "自动" ? Self.detectTargetLanguage(event.text) : translateTarget)，只输出译文：\n\n\(event.text)"
             } else {
                 systemPrompt = event.text
             }

@@ -37,7 +37,16 @@ INSTALL_DIR="${INSTALL_DIR:-/Applications}"
 APP_NAME="selectedai.app"
 
 # Self-signed cert used to give the app a stable identity across rebuilds.
-SIGN_IDENTITY="${SIGN_IDENTITY:-SelectedAI Local}"
+# Default: "SelectedAI Local" if present, else the first "Apple Development" identity.
+if [ -z "${SIGN_IDENTITY:-}" ]; then
+  if security find-identity -v -p codesigning 2>/dev/null | grep -q "SelectedAI Local"; then
+    SIGN_IDENTITY="SelectedAI Local"
+  else
+    SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+      | sed -n 's/.*"\(Apple Development: [^"]*\)".*/\1/p' | head -1)"
+    SIGN_IDENTITY="${SIGN_IDENTITY:-SelectedAI Local}"
+  fi
+fi
 ENTITLEMENTS="$PROJECT_DIR/selectedai/selectedai.entitlements"
 
 echo "==> SelectedAI install (self-signed with '$SIGN_IDENTITY')"

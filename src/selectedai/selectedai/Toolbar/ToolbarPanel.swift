@@ -51,7 +51,8 @@ final class ToolbarPanel: NSPanel {
                 self?.hide()
                 self?.onSkillSelected?(skill, event)
             },
-            onDisableApp: disableApp
+            onDisableApp: disableApp,
+            onSizeChange: { [weak self] size in self?.resizeKeepingCenter(size) }
         )
         contentView = NSHostingView(rootView: view)
 
@@ -60,6 +61,15 @@ final class ToolbarPanel: NSPanel {
         setContentSize(size)
         setFrameOrigin(origin)
         orderFrontRegardless()
+    }
+
+    /// Keeps the toolbar centered when its content width changes (e.g. after scrolling skills).
+    private func resizeKeepingCenter(_ size: CGSize) {
+        guard size.width > 0, size.height > 0, isVisible else { return }
+        let old = frame
+        guard abs(old.width - size.width) > 0.5 || abs(old.height - size.height) > 0.5 else { return }
+        let newFrame = NSRect(x: old.midX - size.width / 2, y: old.minY, width: size.width, height: size.height)
+        setFrame(newFrame, display: true)
     }
 
     func hide() {
